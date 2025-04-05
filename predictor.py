@@ -68,7 +68,7 @@ if st.button("Predict"):
     prob_1 = prediction['probability(0)'][0]
     
     # Determine predicted class
-    predicted_class = 1 if prob_1 > 0.560066899148278 else 0
+    predicted_class = 1 if prob_1 > 0.436018256400085 else 0
     probability = prob_1 if predicted_class == 1 else prob_0
     
     # Display prediction results
