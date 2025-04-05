@@ -31,13 +31,13 @@ with col1:
                          format_func=lambda x: "Mexican American" if x == 1 else "Other Hispanic" if x == 2 
                          else "Non-Hispanic White" if x == 3 else "Non-Hispanic Black" if x == 4 else "Other Race")
     drink = st.selectbox("Alcohol Consumption:", options=[1, 2], 
-                        format_func=lambda x: "No" if x == 1 else "Yes")
+                        format_func=lambda x: "No" if x == 2 else "Yes")
     sleep = st.selectbox("Sleep Problem:", options=[1, 2], 
                          format_func=lambda x: "Yes" if x == 1 else "No")
     Hypertension = st.selectbox("Hypertension:", options=[1, 2], 
-                                format_func=lambda x: "No" if x == 1 else "Yes")
+                                format_func=lambda x: "No" if x == 2 else "Yes")
     Dyslipidemia = st.selectbox("Dyslipidemia:", options=[1, 2], 
-                                format_func=lambda x: "No" if x == 1 else "Yes")
+                                format_func=lambda x: "No" if x == 2 else "Yes")
 
 with col2:
   
