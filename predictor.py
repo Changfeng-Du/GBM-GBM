@@ -125,9 +125,7 @@ if st.button("Predict"):
     st.pyplot(plt.gcf())
     plt.clf()
 
-    # LIME Explanation
-    st.subheader("LIME Explanation")
-   # LIME Explanation
+  # LIME Explanation
     st.subheader("LIME Explanation")
     lime_explainer = LimeTabularExplainer(
         training_data=background.values,
@@ -142,11 +140,5 @@ if st.button("Predict"):
     )
     
     # Display LIME explanation
-    lime_html = lime_exp.as_html(
-        show_table=True,
-        show_all=False,         # 仅显示重要特征
-        predict_proba=True      # 强制显示概率
-    )
-    
-    # 调整Streamlit渲染参数
-    st.components.v1.html(lime_html, height=800, scrolling=False)  # 关闭滚动条
+    lime_html = lime_exp.as_html(show_table=False)  
+    st.components.v1.html(lime_html, height=800, scrolling=True)
