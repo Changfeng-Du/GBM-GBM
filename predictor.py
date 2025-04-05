@@ -1,138 +1,163 @@
-# ...（前面的导入和加载代码保持不变）
+import streamlit as st
+import numpy as np
+import pandas as pd
+import shap
+import matplotlib.pyplot as plt
+from lime.lime_tabular import LimeTabularExplainer
+from pypmml import Model
+
+# 设置页面配置
+st.set_page_config(
+    page_title="Myocardial Infarction and Stroke Predictor",
+    page_icon="🩺",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+# 加载 PMML 模型
+pmml_model = Model.load('gbm_model.pmml')
+# 加载数据
+dev = pd.read_csv('dev_finally.csv')
+vad = pd.read_csv('vad_finally.csv')
+
+# 定义特征名称
+feature_names = ['smoker', 'sex', 'carace', 'drink', 'sleep', 'Hypertension', 
+                 'Dyslipidemia', 'HHR', 'RIDAGEYR', 'INDFMPIR', 'BMXBMI', 
+                 'LBXWBCSI', 'LBXRBCSI']
+
+# 自定义样式
+st.markdown(
+    """
+    <style>
+    .big-font {
+        font-size:30px !important;
+        color: #4CAF50;
+    }
+    </style>
+    """, unsafe_allow_html=True
+)
+
+st.markdown('<h1 class="big-font">Co-occurrence of Myocardial Infarction and Stroke Predictor</h1>', unsafe_allow_html=True)
+
+# 创建输入列
+col1, col2 = st.columns(2)
+
+with col1:
+    smoker = st.selectbox("Smoker:", options=[1, 2, 3], 
+                         format_func=lambda x: "Never" if x == 1 else "Former" if x == 2 else "Current")
+    sex = st.selectbox("Sex:", options=[1, 2], 
+                       format_func=lambda x: "Female" if x == 1 else "Male")
+    carace = st.selectbox("Race/Ethnicity:", options=[1, 2, 3, 4, 5], 
+                         format_func=lambda x: "Mexican American" if x == 1 else "Other Hispanic" if x == 2 
+                         else "Non-Hispanic White" if x == 3 else "Non-Hispanic Black" if x == 4 else "Other Race")
+    drink = st.selectbox("Alcohol Consumption:", options=[1, 2], 
+                        format_func=lambda x: "No" if x == 1 else "Yes")
+    sleep = st.selectbox("Sleep Problem:", options=[1, 2], 
+                         format_func=lambda x: "Yes" if x == 1 else "No")
+
+with col2:
+    Hypertension = st.selectbox("Hypertension:", options=[1, 2], 
+                                format_func=lambda x: "No" if x == 1 else "Yes")
+    Dyslipidemia = st.selectbox("Dyslipidemia:", options=[1, 2], 
+                                format_func=lambda x: "No" if x == 1 else "Yes")
+    HHR = st.number_input("HHR Ratio:", min_value=0.23, max_value=1.67, value=1.0)
+    RIDAGEYR = st.number_input("Age (years):", min_value=20, max_value=80, value=50)
+    INDFMPIR = st.number_input("Poverty Income Ratio:", min_value=0.0, max_value=5.0, value=2.0)
+    BMXBMI = st.number_input("Body Mass Index (kg/m²):", min_value=11.5, max_value=67.3, value=25.0)
+    LBXWBCSI = st.number_input("White Blood Cell Count (10^9/L):", min_value=1.4, max_value=117.2, value=6.0)
+    LBXRBCSI = st.number_input("Red Blood Cell Count (10^9/L):", min_value=2.52, max_value=7.9, value=3.0)
+
+# 处理输入并进行预测
+feature_values = [smoker, sex, carace, drink, sleep, Hypertension, Dyslipidemia, HHR, RIDAGEYR, 
+                 INDFMPIR, BMXBMI, LBXWBCSI, LBXRBCSI]
 
 if st.button("Predict"):
-    with st.spinner('Analyzing your data...'):
-        # 创建输入数据框
-        input_df = pd.DataFrame([feature_values], columns=feature_names)
+    # 创建 DataFrame
+    input_df = pd.DataFrame([feature_values], columns=feature_names)
+    
+    # 进行预测
+    prediction = pmml_model.predict(input_df)
+    prob_0 = prediction['probability(1)'][0]
+    prob_1 = prediction['probability(0)'][0]
+    
+    # 确定预测类别
+    predicted_class = 1 if prob_1 > 0.436018256400085 else 0
+    probability = prob_1 if predicted_class == 1 else prob_0
+    
+    # 显示预测结果
+    st.write(f"**Predicted Class:** {predicted_class} (1: Comorbidity, 0: Non-comorbidity)")
+    st.write(f"**Probability of Comorbidity:** {prob_1:.4f}")
+    st.write(f"**Probability of Non-comorbidity:** {prob_0:.4f}")
+
+    # 生成建议
+    if predicted_class == 1:
+        advice = (
+            f"According to our model, you have a high risk of co-occurrence of myocardial infarction and stroke disease. "
+            f"The model predicts a {probability*100:.1f}% probability. "
+            "It's advised to consult with your healthcare provider for further evaluation."
+        )
+    else:
+        advice = (
+            f"According to our model, you have a low risk ({(1-probability)*100:.1f}% probability). "
+            "However, maintaining a healthy lifestyle is important. Please continue regular check-ups."
+        )
+    st.write(advice)
+
+    # SHAP 解释
+    st.subheader("SHAP Explanation")
+    
+    # 准备背景数据
+    background = vad[feature_names].iloc[:100]
+    
+    # 定义 SHAP 预测函数
+    def pmml_predict(data):
+        if isinstance(data, pd.DataFrame):
+            input_df = data[feature_names].copy()
+        else:
+            input_df = pd.DataFrame(data, columns=feature_names)
         
-        # 预测部分保持不变
-        prediction = pmml_model.predict(input_df)
-        prob_0 = prediction['probability(1)'][0]
-        prob_1 = prediction['probability(0)'][0]
-        predicted_class = 1 if prob_1 > 0.436018256400085 else 0
-        probability = prob_1 if predicted_class == 1 else prob_0
+        predictions = pmml_model.predict(input_df)
+        return np.column_stack((predictions['probability(0)'], predictions['probability(1)']))
+    
+    # 创建 SHAP 解释器
+    explainer = shap.KernelExplainer(pmml_predict, background)
+    
+    # 计算 SHAP 值
+    shap_values = explainer.shap_values(input_df)
+    
+    # 显示 SHAP 力量图
+    st.subheader("SHAP Force Plot Explanation")
+    plt.figure()
+    if predicted_class == 1:
+        shap.force_plot(explainer.expected_value[1], 
+                         shap_values[0, :, 1],  # 取类 1 的 SHAP 值
+                         input_df.iloc[0],
+                         matplotlib=True,
+                         show=False)
+    else:
+        shap.force_plot(explainer.expected_value[0], 
+                         shap_values[0, :, 0],  # 取类 0 的 SHAP 值
+                         input_df.iloc[0],
+                         matplotlib=True,
+                         show=False)
+    
+    st.pyplot(plt.gcf())
+    plt.clf()
 
-        # ====================== 美化后的结果展示 ======================
-        st.subheader("📊 Prediction Results")
-        
-        # 使用columns创建并排布局
-        result_col1, result_col2 = st.columns([1, 2])
-        
-        with result_col1:
-            # 使用容器突出显示结果
-            with st.container():
-                st.markdown("### Risk Assessment")
-                if predicted_class == 1:
-                    st.error("🚨 High Risk of Comorbidity")
-                    st.metric(label="Probability", 
-                            value=f"{prob_1*100:.1f}%", 
-                            delta="High Risk Threshold: 43.6%")
-                else:
-                    st.success("✅ Low Risk of Comorbidity")
-                    st.metric(label="Probability", 
-                            value=f"{prob_0*100:.1f}%", 
-                            delta="Safe Threshold: 56.4%")
-                
-                # 添加进度条可视化
-                st.markdown("### Risk Probability")
-                risk_level = prob_1 if predicted_class == 1 else prob_0
-                st.progress(int(risk_level * 100))
-
-        with result_col2:
-            # 美化建议展示
-            st.markdown("### 🩺 Health Recommendations")
-            advice_container = st.container()
-            with advice_container:
-                if predicted_class == 1:
-                    st.markdown("""
-                    <div style="padding: 15px; border-radius: 10px; background: #fff3f3;">
-                    <h4 style="color: #d60000">Recommended Actions:</h4>
-                    <ul>
-                        <li>🩺 Schedule a cardiology consultation immediately</li>
-                        <li>📅 Arrange for comprehensive cardiovascular screening</li>
-                        <li>🚭 Maintain strict smoking cessation (if applicable)</li>
-                        <li>📉 Monitor blood pressure and cholesterol levels weekly</li>
-                        <li>🏥 Consider hospitalization for further evaluation</li>
-                    </ul>
-                    </div>
-                    """, unsafe_allow_html=True)
-                else:
-                    st.markdown("""
-                    <div style="padding: 15px; border-radius: 10px; background: #f0fff4;">
-                    <h4 style="color: #008000">Preventive Measures:</h4>
-                    <ul>
-                        <li>🏥 Schedule annual cardiovascular check-up</li>
-                        <li>🥗 Maintain balanced diet low in saturated fats</li>
-                        <li>🏃‍♂️ Engage in 150 mins/week moderate exercise</li>
-                        <li>📊 Monitor BMI and waist circumference monthly</li>
-                        <li>💤 Ensure 7-8 hours quality sleep nightly</li>
-                    </ul>
-                    </div>
-                    """, unsafe_allow_html=True)
-
-        # ====================== 增强的可视化解释 ======================
-        st.markdown("---")
-        st.subheader("🔍 Model Interpretation")
-        
-        # SHAP解释部分美化
-        with st.expander("SHAP Force Plot Analysis", expanded=True):
-            st.markdown("""
-            **Explanation:** This diagram shows how each feature contributes to the prediction.
-            - 🔴 Red bars push the prediction towards high risk
-            - 🟢 Green bars reduce the risk probability
-            """)
-            
-            plt.figure(figsize=(10, 4))
-            if predicted_class == 1:
-                shap.force_plot(explainer.expected_value[1], 
-                              shap_values[0,:,1],
-                              input_df.iloc[0],
-                              matplotlib=True,
-                              show=False,
-                              fig=plt.gcf())
-            else:
-                shap.force_plot(explainer.expected_value[0], 
-                              shap_values[0,:,0],
-                              input_df.iloc[0],
-                              matplotlib=True,
-                              show=False,
-                              fig=plt.gcf())
-            
-            plt.tight_layout()
-            st.pyplot(plt.gcf())
-            plt.clf()
-
-        # LIME解释部分美化
-        with st.expander("LIME Feature Impact Breakdown", expanded=True):
-            st.markdown("""
-            **Feature Impact:**  
-            This table shows local feature importance for this specific prediction
-            """)
-            
-            lime_exp = lime_explainer.explain_instance(
-                data_row=input_df.values.flatten(),
-                predict_fn=pmml_predict
-            )
-            
-            # 创建两列布局显示LIME结果
-            lime_col1, lime_col2 = st.columns([1, 3])
-            
-            with lime_col1:
-                st.markdown("### 📈 Impact Summary")
-                html = lime_exp.as_html(show_table=False)
-                st.components.v1.html(html, height=300)
-                
-            with lime_col2:
-                st.markdown("### 📋 Detailed Feature Analysis")
-                df = pd.DataFrame(lime_exp.as_list(), columns=["Feature", "Impact"])
-                st.dataframe(df.style.bar(subset=["Impact"], 
-                                        align="mid", 
-                                        color=["#ff6961", "#77dd77"]),
-                            height=300)
-
-        # 添加免责声明
-        st.markdown("---")
-        st.caption("""
-        ℹ️ **Disclaimer:** This prediction is based on machine learning models and should not replace professional medical advice. 
-        Always consult qualified healthcare providers for medical decisions.
-        """)
+    # LIME 解释
+    st.subheader("LIME Explanation")
+    lime_explainer = LimeTabularExplainer(
+        training_data=background.values,
+        feature_names=feature_names,
+        class_names=['Non-comorbidity', 'Comorbidity'],
+        mode='classification'
+    )
+    
+    lime_exp = lime_explainer.explain_instance(
+        data_row=input_df.values.flatten(),
+        predict_fn=pmml_predict
+    )
+    
+    # 显示 LIME 解释
+    lime_html = lime_exp.as_html(show_table=True)  
+    st.components.v1.html(lime_html, height=800, scrolling=True)
