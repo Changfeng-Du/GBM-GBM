@@ -34,7 +34,7 @@ with col1:
                         format_func=lambda x: "No" if x == 1 else "Yes")
     sleep = st.selectbox("Sleep Problem:", options=[1, 2], 
                          format_func=lambda x: "Yes" if x == 1 else "No")
-       Hypertension = st.selectbox("Hypertension:", options=[1, 2], 
+    Hypertension = st.selectbox("Hypertension:", options=[1, 2], 
                                 format_func=lambda x: "No" if x == 1 else "Yes")
     Dyslipidemia = st.selectbox("Dyslipidemia:", options=[1, 2], 
                                 format_func=lambda x: "No" if x == 1 else "Yes")
