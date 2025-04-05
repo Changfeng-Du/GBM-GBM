@@ -6,200 +6,138 @@ import matplotlib.pyplot as plt
 from lime.lime_tabular import LimeTabularExplainer
 from pypmml import Model
 
-# Page configuration
-st.set_page_config(
-    page_title="Cardiovascular Comorbidity Predictor",
-    page_icon="❤️",
-    layout="wide"
-)
+# Load the PMML model
+pmml_model = Model.load('gbm_model.pmml')
+# Load the data
+dev = pd.read_csv('dev_finally.csv')
+vad = pd.read_csv('vad_finally.csv')
 
-# Custom CSS styling
-st.markdown("""
-<style>
-    .stNumberInput, .stSelectbox {margin-bottom: 1.5rem;}
-    .highlight {background-color: #fff3cd; padding: 1rem; border-radius: 0.5rem;}
-    .risk-meter {background: linear-gradient(90deg, #28a745 0%, #ffc107 50%, #dc3545 100%); height: 20px;}
-</style>
-""", unsafe_allow_html=True)
+# Define feature names in the correct order (from PMML model)
+feature_names = ['smoker', 'sex','carace', 'drink','sleep','Hypertension', 'Dyslipidemia','HHR', 'RIDAGEYR', 
+                 'INDFMPIR', 'BMXBMI', 'LBXWBCSI', 'LBXRBCSI']
 
-# Load resources
-@st.cache_resource
-def load_resources():
-    try:
-        model = Model.load('gbm_model.pmml')
-        dev = pd.read_csv('dev_finally.csv')
-        vad = pd.read_csv('vad_finally.csv')
-        return model, dev, vad
-    except Exception as e:
-        st.error(f"Resource loading failed: {str(e)}")
-        st.stop()
+# Streamlit user interface
+st.title("Co-occurrence of Myocardial Infarction and Stroke Predictor")
 
-pmml_model, dev, vad = load_resources()
+# Create input columns to organize widgets better
+col1, col2 = st.columns(2)
 
-# Feature names
-FEATURE_NAMES = ['smoker', 'sex','carace', 'drink','sleep','Hypertension', 
-                'Dyslipidemia','HHR', 'RIDAGEYR', 'INDFMPIR', 'BMXBMI', 
-                'LBXWBCSI', 'LBXRBCSI']
+with col1:
+    smoker = st.selectbox("Smoker:", options=[1, 2, 3], 
+                         format_func=lambda x: "Never" if x == 1 else "Former" if x == 2 else "Current")
+    sex = st.selectbox("Sex:", options=[1, 2], 
+                       format_func=lambda x: "Female" if x == 1 else "Male")
+    carace = st.selectbox("Race/Ethnicity:", options=[1, 2, 3, 4, 5], 
+                         format_func=lambda x: "Mexican American" if x == 1 else "Other Hispanic" if x == 2 
+                         else "Non-Hispanic White" if x == 3 else "Non-Hispanic Black" if x == 4 else "Other Race")
+    drink = st.selectbox("Alcohol Consumption:", options=[1, 2], 
+                        format_func=lambda x: "No" if x == 1 else "Yes")
+    sleep = st.selectbox("Sleep Problem:", options=[1, 2], 
+                         format_func=lambda x: "Yes" if x == 1 else "No")
+       Hypertension = st.selectbox("Hypertension:", options=[1, 2], 
+                                format_func=lambda x: "No" if x == 1 else "Yes")
+    Dyslipidemia = st.selectbox("Dyslipidemia:", options=[1, 2], 
+                                format_func=lambda x: "No" if x == 1 else "Yes")
 
-# Sidebar - User Guide
-with st.sidebar:
-    st.header("User Guide")
-    st.markdown("""
-    1. Fill all health parameters
-    2. Click Predict button for results
-    3. Review risk explanations
-    4. See tooltips for parameter details
-    """)
-    st.divider()
-    st.caption("Data Source: NHANES Database | Model Version: GBM v2.1")
+with col2:
+    HHR = st.number_input("HHR Ratio:", min_value=0.23, max_value=1.67, value=1.0)
+    RIDAGEYR = st.number_input("Age (years):", min_value=20, max_value=80, value=50)
+    INDFMPIR = st.number_input("Poverty Income Ratio:", min_value=0.0, max_value=5.0, value=2.0)
+    BMXBMI = st.number_input("Body Mass Index (kg/m²):", min_value=11.5, max_value=67.3, value=25.0)
+    LBXWBCSI = st.number_input("White Blood Cell Count (10^9/L):", min_value=1.4, max_value=117.2, value=6.0)
+    LBXRBCSI = st.number_input("Red Blood Cell Count (10^9/L):", min_value=2.52, max_value=7.9, value=3.0)
 
-# Main interface
-st.title("❤️ Cardiovascular Comorbidity Risk Prediction System")
-st.markdown("Machine learning-based risk assessment with SHAP/LIME explanations")
+# Process inputs and make predictions
+feature_values = [smoker, sex, carace, drink, sleep, Hypertension, Dyslipidemia, HHR, RIDAGEYR, 
+                 INDFMPIR, BMXBMI, LBXWBCSI, LBXRBCSI]
 
-# Input panel
-with st.expander("🖋️ Health Parameters", expanded=True):
-    col1, col2, col3 = st.columns(3)
+if st.button("Predict"):
+    # Create DataFrame with correct feature order
+    input_df = pd.DataFrame([feature_values], columns=feature_names)
     
-    with col1:
-        st.subheader("Basic Info")
-        smoker = st.selectbox("Smoking Status", options=[1, 2, 3], 
-                            format_func=lambda x: "Never" if x == 1 else "Former" if x == 2 else "Current",
-                            help="Includes both traditional and e-cigarettes")
-        sex = st.selectbox("Gender", options=[1, 2], 
-                         format_func=lambda x: "Female" if x == 1 else "Male")
-        carace = st.selectbox("Ethnicity", options=[1, 2, 3, 4, 5], 
-                            format_func=lambda x: "Mexican American" if x == 1 else "Other Hispanic" if x == 2 
-                            else "Non-Hispanic White" if x == 3 else "Non-Hispanic Black" if x == 4 else "Other")
-        
-    with col2:
-        st.subheader("Lifestyle")
-        drink = st.selectbox("Alcohol Use", options=[1, 2], 
-                           format_func=lambda x: "No" if x == 1 else "Yes",
-                           help="Alcohol consumption in past 12 months")
-        sleep = st.selectbox("Sleep Issues", options=[1, 2], 
-                           format_func=lambda x: "Yes" if x == 1 else "No")
-        BMXBMI = st.number_input("BMI (kg/m²)", min_value=11.5, max_value=67.3, value=25.0,
-                               help="Normal range: 18.5-24.9")
-        
-    with col3:
-        st.subheader("Clinical Metrics")
-        HHR = st.number_input("HHR Ratio", min_value=0.23, max_value=1.67, value=1.0,
-                            help="Heart rate recovery ratio (Normal: 0-1)")
-        RIDAGEYR = st.number_input("Age (years)", min_value=20, max_value=80, value=50)
-        INDFMPIR = st.number_input("Poverty Income Ratio", min_value=0.0, max_value=5.0, value=2.0,
-                                 help="0: Lowest income, 5: Highest income")
-
-# Prediction and visualization
-if st.button("🔍 Run Prediction", type="primary", use_container_width=True):
-    feature_values = [smoker, sex, carace, drink, sleep, 
-                     Hypertension, Dyslipidemia, HHR, RIDAGEYR, 
-                     INDFMPIR, BMXBMI, LBXWBCSI, LBXRBCSI]
+    # Make prediction
+    prediction = pmml_model.predict(input_df)
+    prob_0 = prediction['probability(1)'][0]
+    prob_1 = prediction['probability(0)'][0]
     
-    with st.spinner("Analyzing..."):
-        input_df = pd.DataFrame([feature_values], columns=FEATURE_NAMES)
-        prediction = pmml_model.predict(input_df)
-        
-        # Results display
-        prob_1 = prediction['probability(1)'][0]
-        prob_0 = prediction['probability(0)'][0]
-        risk_level = "High Risk" if prob_1 > 0.436 else "Low Risk"
-        
-        # Risk visualization
-        st.subheader(f"Prediction Result: {risk_level}")
-        risk_color = "#dc3545" if risk_level == "High Risk" else "#28a745"
-        st.markdown(f"""
-        <div class="highlight">
-            <div style="display: flex; justify-content: space-between; align-items: center">
-                <div>
-                    <h4 style="color:{risk_color}; margin:0">Comorbidity Probability: {prob_1*100:.1f}%</h4>
-                    <p>Non-comorbidity Probability: {prob_0*100:.1f}%</p>
-                </div>
-                <div style="width: 200px">
-                    <div class="risk-meter" style="border-radius:10px; margin-bottom:8px"></div>
-                    <div style="text-align:center">Risk Indicator</div>
-                </div>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        # Medical advice
-        if risk_level == "High Risk":
-            advice = f"""
-            <div style="color:#dc3545; margin:1rem 0">
-            📢 Recommendation: Elevated comorbidity risk detected ({prob_1*100:.1f}%), suggested actions:
-            <ul>
-                <li>Consult a cardiologist immediately</li>
-                <li>Monitor blood pressure and lipid profile</li>
-                <li>Improve lifestyle (diet & exercise)</li>
-            </ul>
-            </div>
-            """
+    # Determine predicted class
+    predicted_class = 1 if prob_1 > 0.436018256400085 else 0
+    probability = prob_1 if predicted_class == 1 else prob_0
+    
+    # Display prediction results
+    st.write(f"**Predicted Class:** {predicted_class} (1: Comorbidity, 0: Non-comorbidity)")
+    st.write(f"**Probability of Comorbidity:** {prob_1:.4f}")
+    st.write(f"**Probability of Non-comorbidity:** {prob_0:.4f}")
+
+    # Generate advice
+    if predicted_class == 1:
+        advice = (
+            f"According to our model, you have a high risk of co-occurrence of myocardial infarction and stroke disease. "
+            f"The model predicts a {probability*100:.1f}% probability. "
+            "It's advised to consult with your healthcare provider for further evaluation."
+        )
+    else:
+        advice = (
+            f"According to our model, you have a low risk ({(1-probability)*100:.1f}% probability). "
+            "However, maintaining a healthy lifestyle is important. Please continue regular check-ups."
+        )
+    st.write(advice)
+
+    # SHAP Explanation
+    st.subheader("SHAP Explanation")
+    
+    # Prepare background data (using first 100 samples)
+    background = vad[feature_names].iloc[:100]
+    
+    # Define prediction function for SHAP
+    def pmml_predict(data):
+        if isinstance(data, pd.DataFrame):
+            input_df = data[feature_names].copy()
         else:
-            advice = f"""
-            <div style="color:#28a745; margin:1rem 0">
-            ✅ Current risk manageable ({prob_1*100:.1f}%), suggested actions:
-            <ul>
-                <li>Regular health checkups (bi-annual recommended)</li>
-                <li>Maintain healthy BMI (<25)</li>
-                <li>Monitor sleep quality and stress</li>
-            </ul>
-            </div>
-            """
-        st.markdown(advice, unsafe_allow_html=True)
+            input_df = pd.DataFrame(data, columns=feature_names)
         
-        # Explanation tabs
-        tab1, tab2 = st.tabs(["📈 SHAP Analysis", "🔎 LIME Explanation"])
-        
-        with tab1:
-            plt.figure(figsize=(10, 6))
-            background = vad[FEATURE_NAMES].iloc[:100]
-            
-            def pmml_predict(data):
-                return np.column_stack((
-                    pmml_model.predict(data)['probability(0)'],
-                    pmml_model.predict(data)['probability(1)']
-                ))
-            
-            explainer = shap.KernelExplainer(pmml_predict, background)
-            shap_values = explainer.shap_values(input_df)
-            
-            if risk_level == "High Risk":
-                shap.force_plot(explainer.expected_value[1], 
-                              shap_values[0][:,1], 
-                              input_df.iloc[0],
-                              matplotlib=True,
-                              show=False,
-                              text_rotation=15)
-            else:
-                shap.force_plot(explainer.expected_value[0], 
-                              shap_values[0][:,0], 
-                              input_df.iloc[0],
-                              matplotlib=True,
-                              show=False,
-                              text_rotation=15)
-            
-            st.pyplot(plt.gcf(), clear_figure=True)
-            st.caption("SHAP force plot: Red features increase risk, blue features decrease risk")
-        
-        with tab2:
-            lime_explainer = LimeTabularExplainer(
-                training_data=background.values,
-                feature_names=FEATURE_NAMES,
-                class_names=['Non-comorbidity', 'Comorbidity'],
-                mode='classification',
-                verbose=False
-            )
-            
-            lime_exp = lime_explainer.explain_instance(
-                input_df.values.flatten(), 
-                pmml_predict,
-                num_features=10
-            )
-            
-            st.components.v1.html(lime_exp.as_html(show_table=True), 
-                                height=600, 
-                                scrolling=True)
+        predictions = pmml_model.predict(input_df)
+        return np.column_stack((predictions['probability(0)'], predictions['probability(1)']))
+    
+    # Create SHAP explainer
+    explainer = shap.KernelExplainer(pmml_predict, background)
+    
+    # Calculate SHAP values
+    shap_values = explainer.shap_values(input_df)
+    
+    # Display SHAP force plot
+    st.subheader("SHAP Force Plot Explanation")
+    plt.figure()
+    if predicted_class == 1:
+        shap.force_plot(explainer.expected_value[1], 
+                       shap_values[0,:,1],  # Take SHAP values for class 1
+                       input_df.iloc[0],
+                       matplotlib=True,
+                       show=False)
+    else:
+        shap.force_plot(explainer.expected_value[0], 
+                       shap_values[0,:,0],  # Take SHAP values for class 0
+                       input_df.iloc[0],
+                       matplotlib=True,
+                       show=False)
+    
+    st.pyplot(plt.gcf())
+    plt.clf()
 
-st.divider()
-st.markdown("⚠️ Disclaimer: Prediction results are for reference only, not a substitute for professional medical diagnosis")
+    # LIME Explanation
+    st.subheader("LIME Explanation")
+    lime_explainer = LimeTabularExplainer(
+        training_data=background.values,
+        feature_names=feature_names,
+        class_names=['Non-comorbidity', 'Comorbidity'],
+        mode='classification'
+    )
+    
+    lime_exp = lime_explainer.explain_instance(
+        data_row=input_df.values.flatten(),
+        predict_fn=pmml_predict
+    )
+    
+    # Display LIME explanation
+    lime_html = lime_exp.as_html(show_table=True)  
+    st.components.v1.html(lime_html, height=800, scrolling=True)
