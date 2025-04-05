@@ -127,37 +127,26 @@ if st.button("Predict"):
 
     # LIME Explanation
     st.subheader("LIME Explanation")
-  # 修改后的LIME配置
-lime_explainer = LimeTabularExplainer(
-    training_data=background.values,
-    feature_names=feature_names,
-    class_names=['Non-comorbidity', 'Comorbidity'],
-    mode='classification',
-    discretize_continuous=True,  # 对连续变量自动分箱
-    kernel_width=3,              # 调整核宽度以平衡局部性
-    random_state=42              # 固定随机种子保证可复现性
-)
-
-# 确保预测函数返回概率
-def pmml_predict(x):
-    # 假设原始模型输出概率，需转换为LIME要求的格式
-    probas = model.predict_proba(x)  # 替换为实际模型调用
-    return probas
-
-# 生成解释
-lime_exp = lime_explainer.explain_instance(
-    data_row=input_df.values.flatten(),
-    predict_fn=pmml_predict,
-    num_features=10,        # 明确指定显示的特征数量
-    top_labels=1            # 仅显示最高概率类别的解释
-)
-
-# 优化展示方式
-lime_html = lime_exp.as_html(
-    show_table=True,
-    show_all=False,         # 仅显示重要特征
-    predict_proba=True      # 强制显示概率
-)
-
-# 调整Streamlit渲染参数
-st.components.v1.html(lime_html, height=800, scrolling=False)  # 关闭滚动条
+   # LIME Explanation
+    st.subheader("LIME Explanation")
+    lime_explainer = LimeTabularExplainer(
+        training_data=background.values,
+        feature_names=feature_names,
+        class_names=['Non-comorbidity', 'Comorbidity'],
+        mode='classification'
+    )
+    
+    lime_exp = lime_explainer.explain_instance(
+        data_row=input_df.values.flatten(),
+        predict_fn=pmml_predict
+    )
+    
+    # Display LIME explanation
+    lime_html = lime_exp.as_html(
+        show_table=True,
+        show_all=False,         # 仅显示重要特征
+        predict_proba=True      # 强制显示概率
+    )
+    
+    # 调整Streamlit渲染参数
+    st.components.v1.html(lime_html, height=800, scrolling=False)  # 关闭滚动条
