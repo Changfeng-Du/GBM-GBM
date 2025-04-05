@@ -34,12 +34,12 @@ with col1:
                         format_func=lambda x: "No" if x == 1 else "Yes")
     sleep = st.selectbox("Sleep Problem:", options=[1, 2], 
                          format_func=lambda x: "Yes" if x == 1 else "No")
-
-with col2:
     Hypertension = st.selectbox("Hypertension:", options=[1, 2], 
                                 format_func=lambda x: "No" if x == 1 else "Yes")
     Dyslipidemia = st.selectbox("Dyslipidemia:", options=[1, 2], 
                                 format_func=lambda x: "No" if x == 1 else "Yes")
+
+with col2:
     HHR = st.number_input("HHR Ratio:", min_value=0.23, max_value=1.67, value=1.0)
     RIDAGEYR = st.number_input("Age (years):", min_value=20, max_value=80, value=50)
     INDFMPIR = st.number_input("Poverty Income Ratio:", min_value=0.0, max_value=5.0, value=2.0)
