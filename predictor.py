@@ -141,14 +141,14 @@ if st.button("Predict"):
     
     # Display LIME explanation
     
-   lime_html = lime_exp.as_html(show_table=False)
-  
-  # 用内联样式包装HTML
-  styled_lime_html = f"""
-      <div style="font-size: 14px; font-family: Arial, sans-serif; line-height: 1.5;">
-          {lime_html}
-      </div>
-  """
-  
-  # 显示带有样式的HTML
-  st.components.v1.html(styled_lime_html, height=800, scrolling=True)
+     lime_html = lime_exp.as_html(show_table=False)
+    
+    # 用内联样式包装HTML
+    styled_lime_html = f"""
+        <div style="font-size: 14px; font-family: Arial, sans-serif; line-height: 1.5;">
+            {lime_html}
+        </div>
+    """
+    
+    # 显示带有样式的HTML
+    st.components.v1.html(styled_lime_html, height=800, scrolling=True)
