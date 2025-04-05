@@ -17,7 +17,12 @@ feature_names = ['smoker', 'sex','carace', 'drink','sleep','Hypertension', 'Dysl
                  'INDFMPIR', 'BMXBMI', 'LBXWBCSI', 'LBXRBCSI']
 
 # Streamlit user interface
+st.set_page_config(page_title="Co-occurrence of Myocardial Infarction and Stroke Predictor", layout="wide")
 st.title("Co-occurrence of Myocardial Infarction and Stroke Predictor")
+st.markdown("""
+This tool predicts the likelihood of co-occurrence between **Myocardial Infarction (MI)** and **Stroke** based on various health indicators. 
+Fill in the information below to get a personalized prediction and explanation.
+""")
 
 # Create input columns to organize widgets better
 col1, col2 = st.columns(2)
@@ -65,6 +70,7 @@ if st.button("Predict"):
     probability = prob_1 if predicted_class == 1 else prob_0
     
     # Display prediction results
+    st.subheader("Prediction Results")
     st.write(f"**Predicted Class:** {predicted_class} (1: Comorbidity, 0: Non-comorbidity)")
     st.write(f"**Probability of Comorbidity:** {prob_1:.4f}")
     st.write(f"**Probability of Non-comorbidity:** {prob_0:.4f}")
@@ -107,7 +113,7 @@ if st.button("Predict"):
     
     # Display SHAP force plot
     st.subheader("SHAP Force Plot Explanation")
-    plt.figure()
+    plt.figure(figsize=(10, 5))
     if predicted_class == 1:
         shap.force_plot(explainer.expected_value[1], 
                        shap_values[0,:,1],  # Take SHAP values for class 1
@@ -141,3 +147,4 @@ if st.button("Predict"):
     # Display LIME explanation
     lime_html = lime_exp.as_html(show_table=True)  
     st.components.v1.html(lime_html, height=800, scrolling=True)
+
