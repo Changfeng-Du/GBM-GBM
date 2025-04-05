@@ -19,43 +19,36 @@ feature_names = ['smoker', 'sex','carace', 'drink','sleep','Hypertension', 'Dysl
 # Streamlit user interface
 st.title("Co-occurrence of Myocardial Infarction and Stroke Predictor")
 
-# Input widgets in the correct order
-smoker = st.selectbox("Smoker:", options=[1, 2, 3], 
-                     format_func=lambda x: "Never" if x == 1 else "Former" if x == 2 else "Current")
+# Create input columns to organize widgets better
+col1, col2 = st.columns(2)
 
-sex = st.selectbox("Sex:", options=[1, 2], 
-                          format_func=lambda x: "Female" if x == 1 else "Male")
+with col1:
+    smoker = st.selectbox("Smoker:", options=[1, 2, 3], 
+                         format_func=lambda x: "Never" if x == 1 else "Former" if x == 2 else "Current")
+    sex = st.selectbox("Sex:", options=[1, 2], 
+                       format_func=lambda x: "Female" if x == 1 else "Male")
+    carace = st.selectbox("Race/Ethnicity:", options=[1, 2, 3, 4, 5], 
+                         format_func=lambda x: "Mexican American" if x == 1 else "Other Hispanic" if x == 2 
+                         else "Non-Hispanic White" if x == 3 else "Non-Hispanic Black" if x == 4 else "Other Race")
+    drink = st.selectbox("Alcohol Consumption:", options=[1, 2], 
+                        format_func=lambda x: "No" if x == 1 else "Yes")
+    sleep = st.selectbox("Sleep Problem:", options=[1, 2], 
+                         format_func=lambda x: "Yes" if x == 1 else "No")
 
-carace = st.selectbox("Race/Ethnicity:", options=[1, 2, 3, 4, 5], 
-                     format_func=lambda x: "Mexican American" if x == 1 else "Other Hispanic" if x == 2 
-                     else "Non-Hispanic White" if x == 3 else "Non-Hispanic Black" if x == 4 else "Other Race")
-
-drink = st.selectbox("Alcohol Consumption:", options=[1, 2], 
-                    format_func=lambda x: "No" if x == 1 else "Yes")
-
-sleep = st.selectbox("Sleep:", options=[1, 2], 
-                          format_func=lambda x: "sleep problem" if x == 1 else "sleep")
-
-Hypertension = st.selectbox("Hypertension:", options=[1, 2], 
-                          format_func=lambda x: "No" if x == 1 else "Yes")
-
-Dyslipidemia = st.selectbox("Dyslipidemia:", options=[1, 2], 
-                          format_func=lambda x: "No" if x == 1 else "Yes")
-
-HHR = st.number_input("HHR Ratio:", min_value=0.23, max_value=1.67, value=1.0)
-
-RIDAGEYR = st.number_input("Age (years):", min_value=20, max_value=80, value=50)
-
-INDFMPIR = st.number_input("Poverty Income Ratio:", min_value=0.0, max_value=5.0, value=2.0)
-
-BMXBMI = st.number_input("Body Mass Index (kg/m²):", min_value=11.5, max_value=67.3, value=25.0)
-
-LBXWBCSI = st.number_input("White Blood Cell Count (10^9/L):", min_value=1.4, max_value=117.2, value=6.0)
-
-LBXRBCSI = st.number_input("Red Blood Cell Count (10^9/L):", min_value=2.52, max_value=7.9, value=3.0)
+with col2:
+    Hypertension = st.selectbox("Hypertension:", options=[1, 2], 
+                                format_func=lambda x: "No" if x == 1 else "Yes")
+    Dyslipidemia = st.selectbox("Dyslipidemia:", options=[1, 2], 
+                                format_func=lambda x: "No" if x == 1 else "Yes")
+    HHR = st.number_input("HHR Ratio:", min_value=0.23, max_value=1.67, value=1.0)
+    RIDAGEYR = st.number_input("Age (years):", min_value=20, max_value=80, value=50)
+    INDFMPIR = st.number_input("Poverty Income Ratio:", min_value=0.0, max_value=5.0, value=2.0)
+    BMXBMI = st.number_input("Body Mass Index (kg/m²):", min_value=11.5, max_value=67.3, value=25.0)
+    LBXWBCSI = st.number_input("White Blood Cell Count (10^9/L):", min_value=1.4, max_value=117.2, value=6.0)
+    LBXRBCSI = st.number_input("Red Blood Cell Count (10^9/L):", min_value=2.52, max_value=7.9, value=3.0)
 
 # Process inputs and make predictions
-feature_values = [smoker, sex,carace, drink,sleep,Hypertension, Dyslipidemia,HHR, RIDAGEYR, 
+feature_values = [smoker, sex, carace, drink, sleep, Hypertension, Dyslipidemia, HHR, RIDAGEYR, 
                  INDFMPIR, BMXBMI, LBXWBCSI, LBXRBCSI]
 
 if st.button("Predict"):
@@ -93,10 +86,10 @@ if st.button("Predict"):
     # SHAP Explanation
     st.subheader("SHAP Explanation")
     
-    # 准备背景数据（使用前100个样本）
+    # Prepare background data (using first 100 samples)
     background = vad[feature_names].iloc[:100]
     
-    # 定义预测函数
+    # Define prediction function for SHAP
     def pmml_predict(data):
         if isinstance(data, pd.DataFrame):
             input_df = data[feature_names].copy()
@@ -104,29 +97,26 @@ if st.button("Predict"):
             input_df = pd.DataFrame(data, columns=feature_names)
         
         predictions = pmml_model.predict(input_df)
-        return np.column_stack((
-            predictions['probability(0)'],
-            predictions['probability(1)']
-        ))
+        return np.column_stack((predictions['probability(0)'], predictions['probability(1)']))
     
-    # 创建SHAP解释器
+    # Create SHAP explainer
     explainer = shap.KernelExplainer(pmml_predict, background)
     
-    # 计算SHAP值
+    # Calculate SHAP values
     shap_values = explainer.shap_values(input_df)
     
-    # 显示SHAP force plot
+    # Display SHAP force plot
     st.subheader("SHAP Force Plot Explanation")
     plt.figure()
     if predicted_class == 1:
         shap.force_plot(explainer.expected_value[1], 
-                       shap_values[0,:,1],  # 取第一个样本的类别1 SHAP值
+                       shap_values[0,:,1],  # Take SHAP values for class 1
                        input_df.iloc[0],
                        matplotlib=True,
                        show=False)
     else:
         shap.force_plot(explainer.expected_value[0], 
-                       shap_values[0,:,0],  # 取第一个样本的类别0 SHAP值
+                       shap_values[0,:,0],  # Take SHAP values for class 0
                        input_df.iloc[0],
                        matplotlib=True,
                        show=False)
