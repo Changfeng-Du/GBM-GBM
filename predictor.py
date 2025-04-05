@@ -125,7 +125,7 @@ if st.button("Predict"):
     st.pyplot(plt.gcf())
     plt.clf()
 
-    # LIME Explanation
+   # LIME Explanation
     st.subheader("LIME Explanation")
     lime_explainer = LimeTabularExplainer(
         training_data=background.values,
@@ -140,21 +140,5 @@ if st.button("Predict"):
     )
     
     # Display LIME explanation
-    
-     st.markdown("""
-      <style>
-          .lime-container {
-              font-size: 14px;
-              font-family: Arial, sans-serif;
-              line-height: 1.5;
-          }
-      </style>
-  """, unsafe_allow_html=True)
-  
-  lime_html = lime_exp.as_html(show_table=False)
-  
-  # 用类名包装LIME HTML内容
-  styled_lime_html = f'<div class="lime-container">{lime_html}</div>'
-  
-  # 显示HTML内容
-  st.components.v1.html(styled_lime_html, height=800, scrolling=True)
+    lime_html = lime_exp.as_html(show_table=False)  
+    st.components.v1.html(lime_html, height=800, scrolling=True)
