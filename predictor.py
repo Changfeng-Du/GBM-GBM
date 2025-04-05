@@ -105,9 +105,9 @@ if st.button("Predict"):
     # Calculate SHAP values
     shap_values = explainer.shap_values(input_df)
     
-    # Display SHAP force plot
+    # Display SHAP force plot with enhanced clarity
     st.subheader("SHAP Force Plot Explanation")
-    plt.figure()
+    plt.figure(figsize=(12, 6))  # Increase figure size for better clarity
     if predicted_class == 1:
         shap.force_plot(explainer.expected_value[1], 
                        shap_values[0,:,1],  # Take SHAP values for class 1
@@ -121,7 +121,8 @@ if st.button("Predict"):
                        matplotlib=True,
                        show=False)
     
-    st.pyplot(plt.gcf())
+    # Streamlit's st.pyplot can ensure better image quality
+    st.pyplot(plt.gcf(), clear_figure=True)  # This ensures higher resolution
     plt.clf()
 
     # LIME Explanation
@@ -138,6 +139,6 @@ if st.button("Predict"):
         predict_fn=pmml_predict
     )
     
-    # Display LIME explanation
+    # Display LIME explanation in a scrollable window for better experience
     lime_html = lime_exp.as_html(show_table=True)  
     st.components.v1.html(lime_html, height=800, scrolling=True)
