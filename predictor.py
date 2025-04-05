@@ -13,11 +13,33 @@ dev = pd.read_csv('dev_finally.csv')
 vad = pd.read_csv('vad_finally.csv')
 
 # Define feature names in the correct order (from PMML model)
-feature_names = ['smoker', 'sex','carace', 'drink','sleep','Hypertension', 'Dyslipidemia','HHR', 'RIDAGEYR', 
+feature_names = ['smoker', 'sex', 'carace', 'drink', 'sleep', 'Hypertension', 'Dyslipidemia', 'HHR', 'RIDAGEYR', 
                  'INDFMPIR', 'BMXBMI', 'LBXWBCSI', 'LBXRBCSI']
 
 # Streamlit user interface
 st.title("Co-occurrence of Myocardial Infarction and Stroke Predictor")
+st.markdown("""
+    <style>
+    .main {
+        background-color: #f0f0f5;
+    }
+    .stButton>button {
+        background-color: #4CAF50;
+        color: white;
+        font-size: 16px;
+        border-radius: 12px;
+        padding: 10px 20px;
+    }
+    .stButton>button:hover {
+        background-color: #45a049;
+    }
+    .stSelectbox select {
+        background-color: #f9f9f9;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+    }
+    </style>
+""", unsafe_allow_html=True)
 
 # Create input columns to organize widgets better
 col1, col2 = st.columns(2)
@@ -64,23 +86,25 @@ if st.button("Predict"):
     predicted_class = 1 if prob_1 > 0.436018256400085 else 0
     probability = prob_1 if predicted_class == 1 else prob_0
     
-    # Display prediction results
-    st.write(f"**Predicted Class:** {predicted_class} (1: Comorbidity, 0: Non-comorbidity)")
+    # Display prediction results with more styling
+    st.markdown(f"### **Prediction Result**")
+    st.write(f"**Predicted Class:** {'Comorbidity' if predicted_class == 1 else 'Non-comorbidity'}")
     st.write(f"**Probability of Comorbidity:** {prob_1:.4f}")
     st.write(f"**Probability of Non-comorbidity:** {prob_0:.4f}")
 
     # Generate advice
     if predicted_class == 1:
         advice = (
-            f"According to our model, you have a high risk of co-occurrence of myocardial infarction and stroke disease. "
-            f"The model predicts a {probability*100:.1f}% probability. "
-            "It's advised to consult with your healthcare provider for further evaluation."
+            f"Based on the model, you have a **high risk** of co-occurrence of myocardial infarction and stroke. "
+            f"Risk: **{probability*100:.1f}%**. "
+            "Please consult a healthcare provider for further evaluation."
         )
     else:
         advice = (
-            f"According to our model, you have a low risk ({(1-probability)*100:.1f}% probability). "
-            "However, maintaining a healthy lifestyle is important. Please continue regular check-ups."
+            f"Based on the model, your risk is relatively **low** ({(1-probability)*100:.1f}%). "
+            "Maintain a healthy lifestyle and continue regular check-ups."
         )
+    st.markdown(f"#### **Health Advice**")
     st.write(advice)
 
     # SHAP Explanation
@@ -106,7 +130,7 @@ if st.button("Predict"):
     shap_values = explainer.shap_values(input_df)
     
     # Display SHAP force plot
-    st.subheader("SHAP Force Plot Explanation")
+    st.subheader("SHAP Force Plot")
     plt.figure()
     if predicted_class == 1:
         shap.force_plot(explainer.expected_value[1], 
