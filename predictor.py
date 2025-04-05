@@ -6,40 +6,20 @@ import matplotlib.pyplot as plt
 from lime.lime_tabular import LimeTabularExplainer
 from pypmml import Model
 
-# 设置页面配置
-st.set_page_config(
-    page_title="Myocardial Infarction and Stroke Predictor",
-    page_icon="🩺",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
-
-# 加载 PMML 模型
+# Load the PMML model
 pmml_model = Model.load('gbm_model.pmml')
-# 加载数据
+# Load the data
 dev = pd.read_csv('dev_finally.csv')
 vad = pd.read_csv('vad_finally.csv')
 
-# 定义特征名称
-feature_names = ['smoker', 'sex', 'carace', 'drink', 'sleep', 'Hypertension', 
-                 'Dyslipidemia', 'HHR', 'RIDAGEYR', 'INDFMPIR', 'BMXBMI', 
-                 'LBXWBCSI', 'LBXRBCSI']
+# Define feature names in the correct order (from PMML model)
+feature_names = ['smoker', 'sex','carace', 'drink','sleep','Hypertension', 'Dyslipidemia','HHR', 'RIDAGEYR', 
+                 'INDFMPIR', 'BMXBMI', 'LBXWBCSI', 'LBXRBCSI']
 
-# 自定义样式
-st.markdown(
-    """
-    <style>
-    .big-font {
-        font-size:30px !important;
-        color: #4CAF50;
-    }
-    </style>
-    """, unsafe_allow_html=True
-)
+# Streamlit user interface
+st.title("Co-occurrence of Myocardial Infarction and Stroke Predictor")
 
-st.markdown('<h1 class="big-font">Co-occurrence of Myocardial Infarction and Stroke Predictor</h1>', unsafe_allow_html=True)
-
-# 创建输入列
+# Create input columns to organize widgets better
 col1, col2 = st.columns(2)
 
 with col1:
@@ -54,12 +34,13 @@ with col1:
                         format_func=lambda x: "No" if x == 1 else "Yes")
     sleep = st.selectbox("Sleep Problem:", options=[1, 2], 
                          format_func=lambda x: "Yes" if x == 1 else "No")
-
-with col2:
     Hypertension = st.selectbox("Hypertension:", options=[1, 2], 
                                 format_func=lambda x: "No" if x == 1 else "Yes")
     Dyslipidemia = st.selectbox("Dyslipidemia:", options=[1, 2], 
                                 format_func=lambda x: "No" if x == 1 else "Yes")
+
+with col2:
+  
     HHR = st.number_input("HHR Ratio:", min_value=0.23, max_value=1.67, value=1.0)
     RIDAGEYR = st.number_input("Age (years):", min_value=20, max_value=80, value=50)
     INDFMPIR = st.number_input("Poverty Income Ratio:", min_value=0.0, max_value=5.0, value=2.0)
@@ -67,29 +48,29 @@ with col2:
     LBXWBCSI = st.number_input("White Blood Cell Count (10^9/L):", min_value=1.4, max_value=117.2, value=6.0)
     LBXRBCSI = st.number_input("Red Blood Cell Count (10^9/L):", min_value=2.52, max_value=7.9, value=3.0)
 
-# 处理输入并进行预测
+# Process inputs and make predictions
 feature_values = [smoker, sex, carace, drink, sleep, Hypertension, Dyslipidemia, HHR, RIDAGEYR, 
                  INDFMPIR, BMXBMI, LBXWBCSI, LBXRBCSI]
 
 if st.button("Predict"):
-    # 创建 DataFrame
+    # Create DataFrame with correct feature order
     input_df = pd.DataFrame([feature_values], columns=feature_names)
     
-    # 进行预测
+    # Make prediction
     prediction = pmml_model.predict(input_df)
     prob_0 = prediction['probability(1)'][0]
     prob_1 = prediction['probability(0)'][0]
     
-    # 确定预测类别
+    # Determine predicted class
     predicted_class = 1 if prob_1 > 0.436018256400085 else 0
     probability = prob_1 if predicted_class == 1 else prob_0
     
-    # 显示预测结果
+    # Display prediction results
     st.write(f"**Predicted Class:** {predicted_class} (1: Comorbidity, 0: Non-comorbidity)")
     st.write(f"**Probability of Comorbidity:** {prob_1:.4f}")
     st.write(f"**Probability of Non-comorbidity:** {prob_0:.4f}")
 
-    # 生成建议
+    # Generate advice
     if predicted_class == 1:
         advice = (
             f"According to our model, you have a high risk of co-occurrence of myocardial infarction and stroke disease. "
@@ -103,13 +84,13 @@ if st.button("Predict"):
         )
     st.write(advice)
 
-    # SHAP 解释
+    # SHAP Explanation
     st.subheader("SHAP Explanation")
     
-    # 准备背景数据
+    # Prepare background data (using first 100 samples)
     background = vad[feature_names].iloc[:100]
     
-    # 定义 SHAP 预测函数
+    # Define prediction function for SHAP
     def pmml_predict(data):
         if isinstance(data, pd.DataFrame):
             input_df = data[feature_names].copy()
@@ -119,32 +100,32 @@ if st.button("Predict"):
         predictions = pmml_model.predict(input_df)
         return np.column_stack((predictions['probability(0)'], predictions['probability(1)']))
     
-    # 创建 SHAP 解释器
+    # Create SHAP explainer
     explainer = shap.KernelExplainer(pmml_predict, background)
     
-    # 计算 SHAP 值
+    # Calculate SHAP values
     shap_values = explainer.shap_values(input_df)
     
-    # 显示 SHAP 力量图
+    # Display SHAP force plot
     st.subheader("SHAP Force Plot Explanation")
     plt.figure()
     if predicted_class == 1:
         shap.force_plot(explainer.expected_value[1], 
-                         shap_values[0, :, 1],  # 取类 1 的 SHAP 值
-                         input_df.iloc[0],
-                         matplotlib=True,
-                         show=False)
+                       shap_values[0,:,1],  # Take SHAP values for class 1
+                       input_df.iloc[0],
+                       matplotlib=True,
+                       show=False)
     else:
         shap.force_plot(explainer.expected_value[0], 
-                         shap_values[0, :, 0],  # 取类 0 的 SHAP 值
-                         input_df.iloc[0],
-                         matplotlib=True,
-                         show=False)
+                       shap_values[0,:,0],  # Take SHAP values for class 0
+                       input_df.iloc[0],
+                       matplotlib=True,
+                       show=False)
     
     st.pyplot(plt.gcf())
     plt.clf()
 
-    # LIME 解释
+    # LIME Explanation
     st.subheader("LIME Explanation")
     lime_explainer = LimeTabularExplainer(
         training_data=background.values,
@@ -158,6 +139,6 @@ if st.button("Predict"):
         predict_fn=pmml_predict
     )
     
-    # 显示 LIME 解释
+    # Display LIME explanation
     lime_html = lime_exp.as_html(show_table=True)  
     st.components.v1.html(lime_html, height=800, scrolling=True)
