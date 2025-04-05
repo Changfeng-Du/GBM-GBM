@@ -106,41 +106,39 @@ if st.button("Predict"):
     # Calculate SHAP values
     shap_values = explainer.shap_values(input_df)
     
-   # Display SHAP force plot
-st.subheader("SHAP Force Plot Explanation")
-plt.figure(figsize=(12, 6))
-plt.rcParams.update({'font.size': 14})
+    # Display SHAP force plot
+    st.subheader("SHAP Force Plot Explanation")
+    plt.figure()
+    if predicted_class == 1:
+        shap.force_plot(explainer.expected_value[1], 
+                       shap_values[0,:,1],  # Take SHAP values for class 1
+                       input_df.iloc[0],
+                       matplotlib=True,
+                       show=False)
+    else:
+        shap.force_plot(explainer.expected_value[0], 
+                       shap_values[0,:,0],  # Take SHAP values for class 0
+                       input_df.iloc[0],
+                       matplotlib=True,
+                       show=False)
+    
+    st.pyplot(plt.gcf())
+    plt.clf()
 
-if predicted_class == 1:
-    shap.force_plot(explainer.expected_value[1], 
-                   shap_values[0,:,1],  # Take SHAP values for class 1
-                   input_df.iloc[0],
-                   matplotlib=True,
-                   show=False)
-else:
-    shap.force_plot(explainer.expected_value[0], 
-                   shap_values[0,:,0],  # Take SHAP values for class 0
-                   input_df.iloc[0],
-                   matplotlib=True,
-                   show=False)
-
-st.pyplot(plt.gcf())
-plt.clf()
-
-# LIME Explanation
-st.subheader("LIME Explanation")
-lime_explainer = LimeTabularExplainer(
-    training_data=background.values,
-    feature_names=feature_names,
-    class_names=['Non-comorbidity', 'Comorbidity'],
-    mode='classification'
-)
-
-lime_exp = lime_explainer.explain_instance(
-    data_row=input_df.values.flatten(),
-    predict_fn=pmml_predict
-)
-
-# Display LIME explanation
-lime_html = lime_exp.as_html(show_table=False)  
-st.components.v1.html(lime_html, height=800, scrolling=True)
+    # LIME Explanation
+    st.subheader("LIME Explanation")
+    lime_explainer = LimeTabularExplainer(
+        training_data=background.values,
+        feature_names=feature_names,
+        class_names=['Non-comorbidity', 'Comorbidity'],
+        mode='classification'
+    )
+    
+    lime_exp = lime_explainer.explain_instance(
+        data_row=input_df.values.flatten(),
+        predict_fn=pmml_predict
+    )
+    
+    # Display LIME explanation
+    lime_html = lime_exp.as_html(show_table=True)  
+    st.components.v1.html(lime_html, height=800, scrolling=True)
