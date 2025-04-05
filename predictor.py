@@ -127,20 +127,20 @@ else:
 st.pyplot(plt.gcf())
 plt.clf()
 
-  # LIME Explanation
-    st.subheader("LIME Explanation")
-    lime_explainer = LimeTabularExplainer(
-        training_data=background.values,
-        feature_names=feature_names,
-        class_names=['Non-comorbidity', 'Comorbidity'],
-        mode='classification'
-    )
-    
-    lime_exp = lime_explainer.explain_instance(
-        data_row=input_df.values.flatten(),
-        predict_fn=pmml_predict
-    )
-    
-    # Display LIME explanation
-    lime_html = lime_exp.as_html(show_table=False)  
-    st.components.v1.html(lime_html, height=800, scrolling=True)
+# LIME Explanation
+st.subheader("LIME Explanation")
+lime_explainer = LimeTabularExplainer(
+    training_data=background.values,
+    feature_names=feature_names,
+    class_names=['Non-comorbidity', 'Comorbidity'],
+    mode='classification'
+)
+
+lime_exp = lime_explainer.explain_instance(
+    data_row=input_df.values.flatten(),
+    predict_fn=pmml_predict
+)
+
+# Display LIME explanation
+lime_html = lime_exp.as_html(show_table=False)  
+st.components.v1.html(lime_html, height=800, scrolling=True)
