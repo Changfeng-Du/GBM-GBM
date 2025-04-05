@@ -5,6 +5,10 @@ import shap
 import matplotlib.pyplot as plt
 from lime.lime_tabular import LimeTabularExplainer
 from pypmml import Model
+from matplotlib import rcParams
+
+# Set global font size for better readability
+rcParams['font.size'] = 12
 
 # Load the PMML model
 pmml_model = Model.load('gbm_model.pmml')
@@ -84,7 +88,8 @@ if st.button("Predict"):
     st.write(advice)
 
     # SHAP Explanation
-    st.subheader("SHAP Explanation")
+    st.subheader("Model Explanation with SHAP")
+    st.write("SHAP (SHapley Additive exPlanations) shows how each feature contributes to the prediction.")
     
     # Prepare background data (using first 100 samples)
     background = vad[feature_names].iloc[:100]
@@ -105,40 +110,131 @@ if st.button("Predict"):
     # Calculate SHAP values
     shap_values = explainer.shap_values(input_df)
     
-    # Display SHAP force plot with enhanced clarity
-    st.subheader("SHAP Force Plot Explanation")
-    plt.figure(figsize=(12, 6))  # Increase figure size for better clarity
+    # Display SHAP force plot with improved formatting
+    st.subheader("SHAP Force Plot")
+    st.write("This plot shows how each feature pushes the prediction from the base value (average model output) to the final prediction.")
+    
+    plt.figure(figsize=(12, 6), dpi=100)
     if predicted_class == 1:
         shap.force_plot(explainer.expected_value[1], 
                        shap_values[0,:,1],  # Take SHAP values for class 1
                        input_df.iloc[0],
                        matplotlib=True,
-                       show=False)
+                       show=False,
+                       text_rotation=15,
+                       figsize=(12, 6))
     else:
         shap.force_plot(explainer.expected_value[0], 
                        shap_values[0,:,0],  # Take SHAP values for class 0
                        input_df.iloc[0],
                        matplotlib=True,
-                       show=False)
+                       show=False,
+                       text_rotation=15,
+                       figsize=(12, 6))
     
-    # Streamlit's st.pyplot can ensure better image quality
-    st.pyplot(plt.gcf(), clear_figure=True)  # This ensures higher resolution
+    plt.tight_layout()
+    st.pyplot(plt.gcf(), bbox_inches='tight')
+    plt.clf()
+    
+    # Display SHAP summary plot
+    st.subheader("SHAP Summary Plot")
+    st.write("This plot shows the importance of features and their impact on predictions.")
+    
+    plt.figure(figsize=(12, 8), dpi=100)
+    shap.summary_plot(shap_values[predicted_class], 
+                     input_df, 
+                     plot_type="bar",
+                     max_display=len(feature_names),
+                     show=False)
+    plt.title("Feature Importance", fontsize=14)
+    plt.tight_layout()
+    st.pyplot(plt.gcf(), bbox_inches='tight')
+    plt.clf()
+    
+    # Display SHAP detailed plot
+    st.subheader("Detailed SHAP Values")
+    st.write("This plot shows how each feature's value affects the prediction.")
+    
+    plt.figure(figsize=(12, 8), dpi=100)
+    shap.summary_plot(shap_values[predicted_class], 
+                     input_df, 
+                     plot_type="dot",
+                     max_display=len(feature_names),
+                     show=False)
+    plt.title("Feature Impact on Prediction", fontsize=14)
+    plt.tight_layout()
+    st.pyplot(plt.gcf(), bbox_inches='tight')
     plt.clf()
 
     # LIME Explanation
-    st.subheader("LIME Explanation")
+    st.subheader("Model Explanation with LIME")
+    st.write("LIME (Local Interpretable Model-agnostic Explanations) explains individual predictions by approximating the model locally.")
+    
     lime_explainer = LimeTabularExplainer(
         training_data=background.values,
         feature_names=feature_names,
         class_names=['Non-comorbidity', 'Comorbidity'],
-        mode='classification'
+        mode='classification',
+        discretize_continuous=False,
+        kernel_width=3,
+        verbose=True
     )
     
     lime_exp = lime_explainer.explain_instance(
         data_row=input_df.values.flatten(),
-        predict_fn=pmml_predict
+        predict_fn=pmml_predict,
+        num_features=len(feature_names),
+        top_labels=1
     )
     
-    # Display LIME explanation in a scrollable window for better experience
-    lime_html = lime_exp.as_html(show_table=True)  
-    st.components.v1.html(lime_html, height=800, scrolling=True)
+    # Display LIME explanation with improved formatting
+    st.subheader("LIME Explanation Plot")
+    
+    # Create a larger figure for the LIME plot
+    fig, ax = plt.subplots(figsize=(12, 8), dpi=100)
+    lime_exp.as_pyplot_figure(label=predicted_class)
+    plt.title("LIME Explanation", fontsize=14)
+    plt.tight_layout()
+    st.pyplot(fig, bbox_inches='tight')
+    plt.clf()
+    
+    # Display LIME explanation as HTML with custom styling
+    st.subheader("Detailed LIME Explanation")
+    lime_html = lime_exp.as_html(predict_proba=True, show_predicted_value=True)
+    
+    # Add custom CSS for better display
+    lime_html = f"""
+    <style>
+        .lime {{
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+        }}
+        .lime .explanation {{
+            background-color: #f9f9f9;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }}
+        .lime .features {{
+            margin-top: 15px;
+        }}
+        .lime .feature {{
+            margin-bottom: 8px;
+            padding: 8px;
+            background-color: white;
+            border-left: 4px solid #4CAF50;
+        }}
+        .lime .feature.pro {{
+            border-left-color: #4CAF50;
+        }}
+        .lime .feature.con {{
+            border-left-color: #F44336;
+        }}
+        .lime .feature.weight {{
+            font-weight: bold;
+        }}
+    </style>
+    {lime_html}
+    """
+    
+    st.components.v1.html(lime_html, height=1000, scrolling=True)
